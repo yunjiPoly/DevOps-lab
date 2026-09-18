@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reliability-api-config
+  namespace: reliability-lab
+data:
+  PORT: "8080"
+  STARTUP_DELAY_MS: "1000"
+  DRAIN_DELAY_MS: "5000"
+  LATENCY_MS: "20"
+  FAILURE_RATE: "0"

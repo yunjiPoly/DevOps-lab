@@ -1,0 +1,15 @@
+{
+  "name": "gke-reliability-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A production-style Kubernetes reliability portfolio project for GKE.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "load": "node scripts/load.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

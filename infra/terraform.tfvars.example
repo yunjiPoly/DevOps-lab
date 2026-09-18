@@ -1,0 +1,4 @@
+project_id        = "your-gcp-project-id"
+region            = "us-central1"
+cluster_name      = "reliability-lab"
+github_repository = "your-github-user/gke-reliability-lab"

@@ -1,0 +1,8 @@
+.git
+.github
+infra
+k8s
+docs
+test
+*.md
+*.zip
