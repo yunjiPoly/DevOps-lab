@@ -1,6 +1,7 @@
 locals {
   services = toset([
     "artifactregistry.googleapis.com",
+    "compute.googleapis.com",
     "container.googleapis.com",
     "iamcredentials.googleapis.com",
     "sts.googleapis.com"
@@ -16,6 +17,8 @@ resource "google_project_service" "required" {
 resource "google_compute_network" "main" {
   name                    = "reliability-lab"
   auto_create_subnetworks = false
+
+  depends_on = [google_project_service.required]
 }
 
 resource "google_compute_subnetwork" "main" {
@@ -36,11 +39,11 @@ resource "google_compute_subnetwork" "main" {
 }
 
 resource "google_container_cluster" "main" {
-  name             = var.cluster_name
-  location         = var.region
-  enable_autopilot = true
-  network          = google_compute_network.main.id
-  subnetwork       = google_compute_subnetwork.main.id
+  name                = var.cluster_name
+  location            = var.region
+  enable_autopilot    = true
+  network             = google_compute_network.main.id
+  subnetwork          = google_compute_subnetwork.main.id
   deletion_protection = false
 
   ip_allocation_policy {
