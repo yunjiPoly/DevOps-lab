@@ -3,6 +3,7 @@ locals {
     "artifactregistry.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",
+    "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "sts.googleapis.com"
   ])
@@ -73,6 +74,8 @@ resource "google_artifact_registry_repository" "app" {
 resource "google_service_account" "github" {
   account_id   = "github-reliability-deploy"
   display_name = "GitHub deployer for reliability lab"
+
+  depends_on = [google_project_service.required]
 }
 
 resource "google_project_iam_member" "github_roles" {
