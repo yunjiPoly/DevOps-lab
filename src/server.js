@@ -14,7 +14,8 @@ export function createApp(options = {}) {
   let failuresTotal = 0;
   let inFlight = 0;
 
-  const isReady = () => acceptingTraffic && Date.now() - startedAt >= startupDelayMs;
+  const hasStarted = () => Date.now() - startedAt >= startupDelayMs;
+  const isReady = () => acceptingTraffic && hasStarted();
 
   const sendJson = (response, statusCode, body) => {
     response.writeHead(statusCode, { "content-type": "application/json" });
@@ -60,8 +61,8 @@ export function createApp(options = {}) {
     }
 
     if (url.pathname === "/api/work") {
-      if (!isReady()) {
-        return sendJson(response, 503, { error: "instance is draining" });
+      if (!hasStarted()) {
+        return sendJson(response, 503, { error: "instance is starting" });
       }
 
       if (latencyMs > 0) await sleep(latencyMs);
@@ -110,15 +111,19 @@ export function startServer() {
   const shutdown = () => {
     app.beginDrain();
     console.log(JSON.stringify({ level: "info", message: "draining connections" }));
-    setTimeout(() => {
-      server.close((error) => {
-        if (error) {
-          console.error(JSON.stringify({ level: "error", message: error.message }));
-          process.exit(1);
-        }
-        process.exit(0);
-      });
+    const forceCloseTimer = setTimeout(() => {
+      server.closeAllConnections();
     }, drainDelayMs);
+    forceCloseTimer.unref();
+
+    server.close((error) => {
+      clearTimeout(forceCloseTimer);
+      if (error) {
+        console.error(JSON.stringify({ level: "error", message: error.message }));
+        process.exit(1);
+      }
+      process.exit(0);
+    });
   };
 
   process.on("SIGTERM", shutdown);

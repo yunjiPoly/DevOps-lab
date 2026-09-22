@@ -50,3 +50,19 @@ test("startup delay keeps a new instance out of service", async () => {
   assert.equal(response.status, 503);
   await new Promise((resolve, reject) => delayedServer.close((error) => error ? reject(error) : resolve()));
 });
+
+test("draining removes readiness without rejecting work on existing connections", async () => {
+  const drainingApp = createApp({ version: "test" });
+  const drainingServer = http.createServer(drainingApp.handler);
+  await new Promise((resolve) => drainingServer.listen(0, "127.0.0.1", resolve));
+  const drainingBaseUrl = `http://127.0.0.1:${drainingServer.address().port}`;
+
+  drainingApp.beginDrain();
+
+  const readinessResponse = await fetch(`${drainingBaseUrl}/readyz`);
+  const workResponse = await fetch(`${drainingBaseUrl}/api/work`);
+  assert.equal(readinessResponse.status, 503);
+  assert.equal(workResponse.status, 200);
+
+  await new Promise((resolve, reject) => drainingServer.close((error) => error ? reject(error) : resolve()));
+});
