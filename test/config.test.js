@@ -33,3 +33,14 @@ test("deployment workflow uses short-lived workload identity", async () => {
   assert.match(workflow, /workload_identity_provider/);
   assert.doesNotMatch(workflow, /credentials_json/);
 });
+
+test("managed Prometheus scrapes the application metrics endpoint", async () => {
+  const kustomization = await read("k8s/base/kustomization.yaml");
+  const monitoring = await read("k8s/base/podmonitoring.yaml");
+  assert.match(kustomization, /podmonitoring.yaml/);
+  assert.match(monitoring, /kind: PodMonitoring/);
+  assert.match(monitoring, /app.kubernetes.io\/name: reliability-api/);
+  assert.match(monitoring, /port: http/);
+  assert.match(monitoring, /path: \/metrics/);
+  assert.match(monitoring, /interval: 30s/);
+});

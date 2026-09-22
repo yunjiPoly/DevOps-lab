@@ -1,0 +1,13 @@
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: reliability-api
+  namespace: reliability-lab
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: reliability-api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
