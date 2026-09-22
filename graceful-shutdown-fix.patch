@@ -1,0 +1,117 @@
+--- a/src/server.js
++++ b/src/server.js
+@@ -14,7 +14,8 @@
+   let failuresTotal = 0;
+   let inFlight = 0;
+ 
+-  const isReady = () => acceptingTraffic && Date.now() - startedAt >= startupDelayMs;
++  const hasStarted = () => Date.now() - startedAt >= startupDelayMs;
++  const isReady = () => acceptingTraffic && hasStarted();
+ 
+   const sendJson = (response, statusCode, body) => {
+     response.writeHead(statusCode, { "content-type": "application/json" });
+@@ -60,8 +61,8 @@
+     }
+ 
+     if (url.pathname === "/api/work") {
+-      if (!isReady()) {
+-        return sendJson(response, 503, { error: "instance is draining" });
++      if (!hasStarted()) {
++        return sendJson(response, 503, { error: "instance is starting" });
+       }
+ 
+       if (latencyMs > 0) await sleep(latencyMs);
+@@ -110,15 +111,19 @@
+   const shutdown = () => {
+     app.beginDrain();
+     console.log(JSON.stringify({ level: "info", message: "draining connections" }));
+-    setTimeout(() => {
+-      server.close((error) => {
+-        if (error) {
+-          console.error(JSON.stringify({ level: "error", message: error.message }));
+-          process.exit(1);
+-        }
+-        process.exit(0);
+-      });
++    const forceCloseTimer = setTimeout(() => {
++      server.closeAllConnections();
+     }, drainDelayMs);
++    forceCloseTimer.unref();
++
++    server.close((error) => {
++      clearTimeout(forceCloseTimer);
++      if (error) {
++        console.error(JSON.stringify({ level: "error", message: error.message }));
++        process.exit(1);
++      }
++      process.exit(0);
++    });
+   };
+ 
+   process.on("SIGTERM", shutdown);
+--- a/scripts/load.js
++++ b/scripts/load.js
+@@ -4,7 +4,10 @@
+ let next = 0;
+ let succeeded = 0;
+ let failed = 0;
++let networkErrors = 0;
++const statusCodes = {};
+ const latencies = [];
++const runStarted = performance.now();
+ 
+ async function worker() {
+   while (next < total) {
+@@ -12,9 +15,11 @@
+     const started = performance.now();
+     try {
+       const response = await fetch(target);
++      statusCodes[response.status] = (statusCodes[response.status] ?? 0) + 1;
+       response.ok ? succeeded += 1 : failed += 1;
+     } catch {
+       failed += 1;
++      networkErrors += 1;
+     } finally {
+       latencies.push(performance.now() - started);
+     }
+@@ -22,6 +27,7 @@
+ }
+ 
+ await Promise.all(Array.from({ length: concurrency }, worker));
++const durationMs = performance.now() - runStarted;
+ latencies.sort((a, b) => a - b);
+ const percentile = (p) => latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * p))];
+ console.log(JSON.stringify({
+@@ -29,6 +35,9 @@
+   total,
+   succeeded,
+   failed,
++  status_codes: statusCodes,
++  network_errors: networkErrors,
++  requests_per_second: Math.round(total / (durationMs / 1000)),
+   p50_ms: Math.round(percentile(0.50)),
+   p95_ms: Math.round(percentile(0.95)),
+   p99_ms: Math.round(percentile(0.99))
+--- a/test/server.test.js
++++ b/test/server.test.js
+@@ -50,3 +50,19 @@
+   assert.equal(response.status, 503);
+   await new Promise((resolve, reject) => delayedServer.close((error) => error ? reject(error) : resolve()));
+ });
++
++test("draining removes readiness without rejecting work on existing connections", async () => {
++  const drainingApp = createApp({ version: "test" });
++  const drainingServer = http.createServer(drainingApp.handler);
++  await new Promise((resolve) => drainingServer.listen(0, "127.0.0.1", resolve));
++  const drainingBaseUrl = `http://127.0.0.1:${drainingServer.address().port}`;
++
++  drainingApp.beginDrain();
++
++  const readinessResponse = await fetch(`${drainingBaseUrl}/readyz`);
++  const workResponse = await fetch(`${drainingBaseUrl}/api/work`);
++  assert.equal(readinessResponse.status, 503);
++  assert.equal(workResponse.status, 200);
++
++  await new Promise((resolve, reject) => drainingServer.close((error) => error ? reject(error) : resolve()));
++});
+
