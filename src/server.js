@@ -15,7 +15,7 @@ export function createApp(options = {}) {
   let inFlight = 0;
   const httpRequests = new Map();
   const requestDurations = new Map();
-  const durationBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5];
+  const durationBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.3, 0.5, 1, 2.5, 5];
 
   const hasStarted = () => Date.now() - startedAt >= startupDelayMs;
   const isReady = () => acceptingTraffic && hasStarted();
@@ -38,10 +38,11 @@ export function createApp(options = {}) {
     requestMetric.count += 1;
     httpRequests.set(requestKey, requestMetric);
 
-    const durationKey = JSON.stringify([method, route]);
+    const durationKey = JSON.stringify([method, route, statusCode]);
     const durationMetric = requestDurations.get(durationKey) ?? {
       method,
       route,
+      statusCode,
       count: 0,
       sum: 0,
       buckets: durationBuckets.map(() => 0)
@@ -110,11 +111,11 @@ export function createApp(options = {}) {
       );
       for (const metric of [...requestDurations.values()].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))) {
         durationBuckets.forEach((upperBound, index) => {
-          lines.push(`reliability_http_request_duration_seconds_bucket{${labels({ method: metric.method, route: metric.route, le: upperBound })}} ${metric.buckets[index]}`);
+          lines.push(`reliability_http_request_duration_seconds_bucket{${labels({ method: metric.method, route: metric.route, status_code: metric.statusCode, le: upperBound })}} ${metric.buckets[index]}`);
         });
-        lines.push(`reliability_http_request_duration_seconds_bucket{${labels({ method: metric.method, route: metric.route, le: "+Inf" })}} ${metric.count}`);
-        lines.push(`reliability_http_request_duration_seconds_sum{${labels({ method: metric.method, route: metric.route })}} ${metric.sum}`);
-        lines.push(`reliability_http_request_duration_seconds_count{${labels({ method: metric.method, route: metric.route })}} ${metric.count}`);
+        lines.push(`reliability_http_request_duration_seconds_bucket{${labels({ method: metric.method, route: metric.route, status_code: metric.statusCode, le: "+Inf" })}} ${metric.count}`);
+        lines.push(`reliability_http_request_duration_seconds_sum{${labels({ method: metric.method, route: metric.route, status_code: metric.statusCode })}} ${metric.sum}`);
+        lines.push(`reliability_http_request_duration_seconds_count{${labels({ method: metric.method, route: metric.route, status_code: metric.statusCode })}} ${metric.count}`);
       }
       lines.push("");
       response.writeHead(200, { "content-type": "text/plain; version=0.0.4" });

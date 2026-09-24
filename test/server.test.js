@@ -45,9 +45,9 @@ test("metrics are Prometheus-compatible text", async () => {
   assert.match(body, /reliability_in_flight_requests \d+/);
   assert.match(body, /reliability_http_requests_total\{method="GET",route="\/api\/work",status_code="200"\} \d+/);
   assert.match(body, /reliability_http_requests_total\{method="GET",route="other",status_code="404"\} \d+/);
-  assert.match(body, /reliability_http_request_duration_seconds_bucket\{method="GET",route="\/api\/work",le="0\.1"\} \d+/);
-  assert.match(body, /reliability_http_request_duration_seconds_bucket\{method="GET",route="\/api\/work",le="\+Inf"\} \d+/);
-  assert.match(body, /reliability_http_request_duration_seconds_count\{method="GET",route="\/api\/work"\} \d+/);
+  assert.match(body, /reliability_http_request_duration_seconds_bucket\{method="GET",route="\/api\/work",status_code="200",le="0\.3"\} \d+/);
+  assert.match(body, /reliability_http_request_duration_seconds_bucket\{method="GET",route="\/api\/work",status_code="200",le="\+Inf"\} \d+/);
+  assert.match(body, /reliability_http_request_duration_seconds_count\{method="GET",route="\/api\/work",status_code="200"\} \d+/);
 });
 
 test("startup delay keeps a new instance out of service", async () => {
